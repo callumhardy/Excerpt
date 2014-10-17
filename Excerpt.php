@@ -3,7 +3,7 @@
  /**
   * The Excerpt CLASS
   *
-  * Author: Callum Hardy <callum@ed.com.au>
+  * Author: Callum Hardy <callum.hardy@absolute-design.co.uk>
   * Version 1.0
   */
 
@@ -41,6 +41,14 @@
 			 * Defaults to the WP content field.
 			 */
 			'content' => null,
+
+			/**
+			 * @param bool [title] 
+			 * 
+			 * This option grabs the title of the page/post. It overrides the `content` parameter
+			 *
+			 */
+			'use_title' => false,
 
 			/**
 			 * @param Integer [match_index] 
@@ -99,7 +107,7 @@
 			 * 
 			 * Eg: `span` for a <span> tag
 			 */
-			'container'	=> 'p',
+			'container'	=> false,
 
 			/**
 			 * @param String/Array [container_class]
@@ -143,7 +151,16 @@
 			 * 
 			 * Default: Current page or current page in loop
 			 */
-			'page_id' => null
+			'page_id' => null,
+
+			/**
+			 * @param string [falsy_return]
+			 * 
+			 * What should the plugin return when false
+			 *
+			 * Options: `bool`, `null`, `empty_string`
+			 */
+			'falsy_return' => 'empty_string'
 		);
 
 		//	To hold the merger of any config arguments with the default arguments
@@ -191,7 +208,8 @@
 				$excerpt .= self::get_readmore();
 
 			//	Wrap excerpt in a container element
-			$excerpt = self::wrap_excerpt( $excerpt );
+			if( self::$args['container'] )
+				$excerpt = self::wrap_excerpt( $excerpt );
 
 			//	After all the above malarkey do we have an excerpt?
 			if( $excerpt )
@@ -204,7 +222,11 @@
 			else
 				// Fail pants! 
 				// Life 1 - You 0
-				return false;
+				if( self::$args['falsy_return'] === 'null' ) {
+					return null;
+				} else {
+					return false;
+				}
 		}
 
 
@@ -225,9 +247,20 @@
 			else
 				$page_id = self::$args['page_id'];
 
-			//	First check for an WP excerpt field
+			$excerpt = null;
+
+			//	First check if we need to exctract from the title
 			//	Any content entered in here overrides the excerpt args
-			$excerpt = get_post_field( 'post_excerpt', $page_id );
+			if( self::$args['use_title'] ) 
+				$excerpt = html_entity_decode( get_the_title() );
+			$excerpt = str_replace('0xEF 0xBF 0xBD', '', $excerpt);
+			// $excerpt = preg_replace('/[&#65533;]/', '_', $string);
+
+			//	Check for an WP excerpt field
+			if(!$excerpt)
+				$excerpt = get_post_field( 'post_excerpt', $page_id );
+
+
 
 			//	If no excerpt has been found, try the WP excerpt field
 			if(!$excerpt) {
@@ -243,15 +276,21 @@
 
 				//	If no excerpt has been found, try the WP content field
 				if(!$excerpt) {
-					$excerpt = get_post_field( 'post_content', $page_id );
+					$excerpt = strip_shortcodes( get_post_field( 'post_content', $page_id ) );
 				}				
 			}
 
 			//	Strip the HTML from the excerpt - Highly recommended
-			if( $excerpt && self::$args['striptags'] )
+			if( $excerpt && self::$args['striptags'] ) {
 				return strip_tags( $excerpt );
-			else
-				return false;
+			} else {
+				if( self::$args['falsy_return'] === 'empty_string' ) {
+					return '';
+				} else {
+					return false;
+				}
+			}
+				
 		}
 
 
